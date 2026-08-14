@@ -7,6 +7,11 @@ from src.kpi_engine import build_monthly_kpi_trend, calculate_period_change
 from src.column_suggester import suggest_column, get_selectbox_index
 from src.root_cause import analyze_segment_drivers
 from src.summary_writer import generate_kpi_summary
+from src.sql_engine import run_sql_query, get_sample_queries
+from src.anomaly_detector import detect_kpi_anomalies
+from src.forecaster import forecast_kpi_trend
+from src.report_exporter import generate_markdown_report
+from src.agent_workflow import run_agentic_investigation
 
 
 st.set_page_config(
@@ -24,8 +29,8 @@ if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     profile = profile_dataframe(df)
 
-    tab1, tab2, tab3 = st.tabs(
-        ["Dataset Profile", "KPI Analysis", "Root-Cause Analysis"]
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["Dataset Profile", "KPI Analysis", "Root-Cause Analysis", "SQL Lab", "Agent Workflow"]
     )
 
     with tab1:
@@ -124,6 +129,11 @@ if uploaded_file is not None:
 
     change = calculate_period_change(trend_df)
 
+    anomaly_df = pd.DataFrame()
+    forecast_df = pd.DataFrame()
+    driver_df = pd.DataFrame()
+    insight_summary = None
+
     with tab2:
         st.write("### KPI Trend Table")
         st.dataframe(trend_df)
@@ -156,6 +166,75 @@ if uploaded_file is not None:
             )
 
         st.write(change)
+
+        st.write("### Anomaly Detection")
+
+        anomaly_threshold = st.slider(
+            "Z-score threshold",
+            min_value=1.0,
+            max_value=3.0,
+            value=1.5,
+            step=0.1
+        )
+
+        anomaly_df = detect_kpi_anomalies(
+            trend_df,
+            value_col="kpi_value",
+            z_threshold=anomaly_threshold
+        )
+
+        st.dataframe(anomaly_df)
+
+        flagged_anomalies = anomaly_df[anomaly_df["is_anomaly"] == True]
+
+        if flagged_anomalies.empty:
+            st.info("No unusual KPI values detected at the selected threshold.")
+        else:
+            st.warning("Unusual KPI values detected.")
+            st.dataframe(flagged_anomalies)
+
+        st.write("### KPI Forecast")
+
+        forecast_periods = st.slider(
+            "Months to forecast",
+            min_value=1,
+            max_value=6,
+            value=3
+        )
+
+        forecast_df = forecast_kpi_trend(
+            trend_df,
+            periods_to_forecast=forecast_periods
+        )
+
+        if forecast_df.empty:
+            st.info("Not enough data available to generate a forecast.")
+        else:
+            st.write("### Forecast Table")
+            st.dataframe(forecast_df)
+
+            actual_plot_df = trend_df[["period", "kpi_value"]].copy()
+            actual_plot_df = actual_plot_df.rename(columns={"kpi_value": "value"})
+            actual_plot_df["type"] = "Actual"
+
+            forecast_plot_df = forecast_df.rename(columns={"forecast_value": "value"})
+            forecast_plot_df["type"] = "Forecast"
+
+            combined_plot_df = pd.concat(
+                [actual_plot_df, forecast_plot_df],
+                ignore_index=True
+            )
+
+            fig = px.line(
+                combined_plot_df,
+                x="period",
+                y="value",
+                color="type",
+                markers=True,
+                title=f"Actual and Forecasted {kpi_name}"
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
 
     with tab3:
         st.write("### Root-Cause Analysis")
@@ -282,14 +361,82 @@ if uploaded_file is not None:
 
                     st.write("### Insight Summary")
 
-                    summary = generate_kpi_summary(
+                    insight_summary = generate_kpi_summary(
                         change=comparison_change,
                         driver_df=driver_df,
                         kpi_name=kpi_name,
                         segment_col=segment_col
                     )
 
-                    st.success(summary)
+                    st.success(insight_summary)
+
+                    report = generate_markdown_report(
+                        kpi_name=kpi_name,
+                        trend_df=trend_df,
+                        change=comparison_change,
+                        driver_df=driver_df,
+                        anomaly_df=anomaly_df,
+                        forecast_df=forecast_df,
+                        insight_summary=insight_summary
+                    )
+
+                    st.download_button(
+                        label="Download Markdown Report",
+                        data=report,
+                        file_name="metricpulse_report.md",
+                        mime="text/markdown"
+                    )
+
+    with tab4:
+        st.write("### SQL Lab")
+        st.write("Run SQL directly on the uploaded CSV. The table name is `sales_data`.")
+
+        sample_queries = get_sample_queries()
+
+        selected_query_name = st.selectbox(
+            "Choose a sample query",
+            list(sample_queries.keys())
+        )
+
+        query = st.text_area(
+            "SQL query",
+            value=sample_queries[selected_query_name],
+            height=220
+        )
+
+        if st.button("Run SQL Query"):
+            try:
+                result_df = run_sql_query(df, query)
+                st.write("### Query Result")
+                st.dataframe(result_df)
+            except Exception as error:
+                st.error(f"SQL query failed: {error}")
+
+
+    with tab5:
+        st.write("### Agent Workflow")
+        st.write("This shows the structured investigation steps used by MetricPulse AI.")
+
+        investigation = run_agentic_investigation(
+            df=df,
+            date_col=date_col,
+            kpi_name=kpi_name,
+            revenue_col=revenue_col,
+            order_col=order_col
+        )
+
+        agent_steps_df = pd.DataFrame(investigation["agent_steps"])
+
+        st.write("### Investigation Steps")
+        st.dataframe(agent_steps_df)
+
+        st.write("### Agent Outputs")
+
+        for step in investigation["agent_steps"]:
+            with st.expander(step["agent"]):
+                st.write(f"**Task:** {step['task']}")
+                st.write(f"**Output:** {step['output']}")
+
 
 else:
     st.info("Upload a CSV file to begin.")
