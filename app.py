@@ -12,6 +12,7 @@ from src.anomaly_detector import detect_kpi_anomalies
 from src.forecaster import forecast_kpi_trend
 from src.report_exporter import generate_markdown_report
 from src.agent_workflow import run_agentic_investigation
+from src.tool_registry import ANALYTICS_TOOLS
 
 
 st.set_page_config(
@@ -426,6 +427,10 @@ if uploaded_file is not None:
         )
 
         agent_steps_df = pd.DataFrame(investigation["agent_steps"])
+
+        st.write("### Available Agent Tools")
+        tools_df = pd.DataFrame(ANALYTICS_TOOLS)
+        st.dataframe(tools_df)
 
         st.write("### Investigation Steps")
         st.dataframe(agent_steps_df)
