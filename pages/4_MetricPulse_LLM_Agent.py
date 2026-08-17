@@ -118,11 +118,13 @@ if run_agent:
         st.caption("These are the tools that actually ran after validation.")
         st.dataframe(result["tool_trace"])
 
+        if "llm_final_answer" in result:
+            st.write("## LLM Final Answer")
+            st.success(result["llm_final_answer"])
+
         if "generate_insight_summary" in result:
-            st.write("## Answer")
-            st.success(result["generate_insight_summary"])
-        else:
-            st.info("The LLM did not include generate_insight_summary in its plan.")
+            with st.expander("Rule-based summary"):
+                st.write(result["generate_insight_summary"])
 
         if "calculate_kpi_trend" in result:
             st.write("## KPI Trend")
@@ -169,8 +171,12 @@ if run_agent:
             st.write("## SQL Result")
             st.dataframe(result["run_sql_query"])
 
-        with st.expander("Debug: LLM Prompt"):
+        with st.expander("Debug: LLM Planner Prompt"):
             st.code(result["llm_prompt"], language="text")
+
+        if "llm_explainer_prompt" in result:
+            with st.expander("Debug: LLM Explainer Prompt"):
+                st.code(result["llm_explainer_prompt"], language="text")
 
     except Exception as error:
         st.error(f"LLM agent failed: {error}")
