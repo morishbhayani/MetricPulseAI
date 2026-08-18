@@ -327,7 +327,7 @@ with tab5:
 with tab6:
     render_llm_planned_agent_tab(
         df=df,
-        categorical_columns=df.select_dtypes(include=["object", "category"]).columns.tolist(),
+        categorical_columns=categorical_columns,
         date_col=date_col,
         kpi_name=kpi_name,
         revenue_col=revenue_col,

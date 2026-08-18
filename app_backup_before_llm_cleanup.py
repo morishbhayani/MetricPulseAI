@@ -13,7 +13,6 @@ from src.forecaster import forecast_kpi_trend
 from src.report_exporter import generate_markdown_report
 from src.agent_workflow import run_agentic_investigation
 from src.tool_registry import ANALYTICS_TOOLS
-from src.llm_planned_agent_tab import render_llm_planned_agent_tab
 
 
 st.set_page_config(
@@ -322,12 +321,10 @@ with tab5:
     st.write("**Forecast:**")
     st.dataframe(agent_result["forecast_df"])
 
-
-
 with tab6:
-    render_llm_planned_agent_tab(
+    render_metricpulse_llm_agent_tab(
         df=df,
-        categorical_columns=df.select_dtypes(include=["object", "category"]).columns.tolist(),
+        profile=profile,
         date_col=date_col,
         kpi_name=kpi_name,
         revenue_col=revenue_col,

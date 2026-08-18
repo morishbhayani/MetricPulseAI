@@ -3,12 +3,9 @@ import json
 from src.tool_registry import ANALYTICS_TOOLS
 
 
-def extract_json_from_llm_response(response_text: str) -> dict:
+def clean_llm_json_response(response_text: str) -> str:
     """
-    Extract JSON from an LLM response.
-
-    The LLM should return JSON only, but this function is defensive in case
-    the response includes markdown code fences.
+    Remove common markdown formatting around JSON.
     """
 
     cleaned = response_text.strip()
@@ -22,68 +19,65 @@ def extract_json_from_llm_response(response_text: str) -> dict:
     if cleaned.endswith("```"):
         cleaned = cleaned[:-3].strip()
 
+    return cleaned
+
+
+def parse_llm_tool_plan(response_text: str) -> list[dict]:
+    """
+    Parse and validate an LLM-generated tool plan.
+
+    Expected format:
+    {
+      "tool_plan": [
+        {
+          "tool_name": "...",
+          "args": {...},
+          "reason": "..."
+        }
+      ]
+    }
+    """
+
+    allowed_tool_names = {tool["tool_name"] for tool in ANALYTICS_TOOLS}
+
+    cleaned_text = clean_llm_json_response(response_text)
+
     try:
-        return json.loads(cleaned)
+        parsed = json.loads(cleaned_text)
     except json.JSONDecodeError as error:
         raise ValueError(f"LLM response was not valid JSON: {error}")
 
+    if "tool_plan" not in parsed:
+        raise ValueError("LLM response must contain a 'tool_plan' key.")
 
-def validate_tool_plan(plan: dict, available_columns: list[str]) -> list[dict]:
-    """
-    Validate an LLM-generated tool plan before executing it.
-    """
+    tool_plan = parsed["tool_plan"]
 
-    if "tool_calls" not in plan:
-        raise ValueError("Plan must contain a 'tool_calls' list.")
+    if not isinstance(tool_plan, list):
+        raise ValueError("'tool_plan' must be a list.")
 
-    if not isinstance(plan["tool_calls"], list):
-        raise ValueError("'tool_calls' must be a list.")
+    validated_plan = []
 
-    allowed_tools = {tool["tool_name"] for tool in ANALYTICS_TOOLS}
-    available_column_set = set(available_columns)
+    for step in tool_plan:
+        if not isinstance(step, dict):
+            raise ValueError("Each tool plan step must be a dictionary.")
 
-    validated_calls = []
+        tool_name = step.get("tool_name")
+        args = step.get("args", {})
+        reason = step.get("reason", "")
 
-    column_arg_names = {
-        "date_col",
-        "revenue_col",
-        "order_col",
-        "segment_col"
-    }
-
-    for call in plan["tool_calls"]:
-        if not isinstance(call, dict):
-            raise ValueError("Each tool call must be a dictionary.")
-
-        tool_name = call.get("tool_name")
-        args = call.get("args", {})
-
-        if tool_name not in allowed_tools:
-            raise ValueError(f"Tool is not allowed: {tool_name}")
+        if tool_name not in allowed_tool_names:
+            raise ValueError(f"Unknown tool selected by LLM: {tool_name}")
 
         if not isinstance(args, dict):
-            raise ValueError(f"Args for {tool_name} must be a dictionary.")
+            raise ValueError(f"Args for tool '{tool_name}' must be a dictionary.")
 
-        for arg_name, arg_value in args.items():
-            if arg_name in column_arg_names and arg_value is not None:
-                if arg_value not in available_column_set:
-                    raise ValueError(
-                        f"Invalid column for {arg_name}: {arg_value}. "
-                        f"Available columns: {available_columns}"
-                    )
+        if not isinstance(reason, str):
+            raise ValueError(f"Reason for tool '{tool_name}' must be a string.")
 
-        validated_calls.append({
+        validated_plan.append({
             "tool_name": tool_name,
-            "args": args
+            "args": args,
+            "reason": reason
         })
 
-    return validated_calls
-
-
-def parse_and_validate_llm_plan(response_text: str, available_columns: list[str]) -> list[dict]:
-    """
-    Convert raw LLM response text into safe validated tool calls.
-    """
-
-    plan = extract_json_from_llm_response(response_text)
-    return validate_tool_plan(plan, available_columns)
+    return validated_plan
