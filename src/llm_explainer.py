@@ -66,10 +66,13 @@ Your job is to write a concise business answer using only the provided evidence.
 Rules:
 1. Do not invent numbers.
 2. Do not invent causes.
-3. If the evidence is incomplete, say what is missing.
+3. Start with the direct answer.
 4. Use simple business language.
 5. Keep the answer around 4-7 sentences.
-6. Explain what changed, the likely driver if available, anomalies if available, and forecast if available.
+6. Explain what changed and the likely driver if root-cause evidence is available.
+7. Only mention anomalies if anomaly evidence is provided.
+8. Only mention forecast if forecast evidence is provided.
+9. Do not say forecast, anomaly, or other evidence is missing unless the user's question specifically asks for it.
 
 Verified tool outputs:
 {evidence_json}

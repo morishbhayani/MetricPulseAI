@@ -51,8 +51,15 @@ suggested_revenue_col = suggest_column(
 
 suggested_order_col = suggest_column(
     profile["column_names"],
-    ["order_id", "order", "transaction_id", "transaction"]
+    ["order_id", "transaction_id", "invoice_id", "receipt_id"]
 )
+
+if suggested_order_col is None:
+    non_date_columns = [
+        col for col in profile["column_names"]
+        if col != suggested_date_col
+    ]
+    suggested_order_col = non_date_columns[0] if non_date_columns else profile["column_names"][0]
 
 st.sidebar.header("KPI Settings")
 
