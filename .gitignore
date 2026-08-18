@@ -6,3 +6,8 @@ __pycache__/
 outputs/
 .env
 EOF
+app_backup*.py
+app_broken_backup.py
+README_backup.md
+dev_pages/
+pages/3_LLM_Planned_Agent.py
