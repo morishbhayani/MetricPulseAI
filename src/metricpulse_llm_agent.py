@@ -1,8 +1,9 @@
 import pandas as pd
 
-from src.llm_client import call_llm_planner
+from src.llm_client import call_llm_planner, call_llm_explainer
 from src.llm_planner_prompt import build_llm_planner_prompt
 from src.llm_plan_runner import run_llm_tool_plan
+from src.llm_explainer import build_llm_explainer_prompt
 
 
 def get_available_periods(df: pd.DataFrame, date_col: str) -> list[str]:
@@ -39,21 +40,24 @@ def run_metricpulse_llm_agent(
     segment_col: str | None = None
 ) -> dict:
     """
-    Run the real LLM-powered MetricPulse Analyst Agent.
+    Run the LLM-powered MetricPulse Analyst Agent.
 
-    LLM job:
-    - choose tools
-    - return JSON plan
+    LLM planner:
+    - chooses tools
+    - returns JSON plan
 
-    Python job:
-    - validate JSON
-    - execute tools
-    - calculate real results
+    Python:
+    - validates JSON
+    - executes tools
+    - calculates verified results
+
+    LLM explainer:
+    - explains verified Python outputs
     """
 
     available_periods = get_available_periods(df, date_col)
 
-    prompt = build_llm_planner_prompt(
+    planner_prompt = build_llm_planner_prompt(
         question=question,
         column_names=df.columns.tolist(),
         date_col=date_col,
@@ -64,7 +68,7 @@ def run_metricpulse_llm_agent(
         available_periods=available_periods
     )
 
-    llm_plan_text = call_llm_planner(prompt)
+    llm_plan_text = call_llm_planner(planner_prompt)
 
     result = run_llm_tool_plan(
         response_text=llm_plan_text,
@@ -74,6 +78,22 @@ def run_metricpulse_llm_agent(
     result["question"] = question
     result["available_periods"] = available_periods
     result["llm_plan_text"] = llm_plan_text
-    result["llm_prompt"] = prompt
+    result["llm_prompt"] = planner_prompt
+
+    explainer_prompt = build_llm_explainer_prompt(
+        question=question,
+        result=result
+    )
+
+    result["llm_explainer_prompt"] = explainer_prompt
+
+    try:
+        result["llm_final_answer"] = call_llm_explainer(explainer_prompt)
+    except Exception as error:
+        result["llm_final_answer"] = (
+            "The Python analytics tools ran successfully, but the LLM explainer failed. "
+            f"Error: {error}"
+        )
+        result["llm_explainer_error"] = str(error)
 
     return result

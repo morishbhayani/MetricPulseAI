@@ -4,12 +4,9 @@ from dotenv import load_dotenv
 from groq import Groq
 
 
-def call_llm_planner(prompt: str) -> str:
+def get_groq_client_and_model():
     """
-    Call the LLM planner.
-
-    The LLM's job is only to return a JSON tool plan.
-    It should not calculate KPI values or write the final business answer.
+    Load Groq API key and model from .env.
     """
 
     load_dotenv(dotenv_path=".env")
@@ -24,6 +21,21 @@ def call_llm_planner(prompt: str) -> str:
 
     client = Groq(api_key=api_key)
 
+    return client, model
+
+
+def call_llm_planner(prompt: str) -> str:
+    """
+    Call the LLM planner.
+
+    The planner's job:
+    - choose analytics tools
+    - return JSON only
+    - do not calculate KPI values
+    """
+
+    client, model = get_groq_client_and_model()
+
     response = client.chat.completions.create(
         model=model,
         temperature=0,
@@ -36,6 +48,40 @@ def call_llm_planner(prompt: str) -> str:
                     "Do not calculate numbers. "
                     "Do not explain. "
                     "Only choose tool calls."
+                )
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+
+    return response.choices[0].message.content
+
+
+def call_llm_explainer(prompt: str) -> str:
+    """
+    Call the LLM explainer.
+
+    The explainer's job:
+    - explain verified Python tool outputs
+    - do not invent numbers
+    - do not invent causes
+    """
+
+    client, model = get_groq_client_and_model()
+
+    response = client.chat.completions.create(
+        model=model,
+        temperature=0.2,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a business analytics explainer. "
+                    "Use only verified Python tool outputs. "
+                    "Do not invent numbers or causes."
                 )
             },
             {
