@@ -273,7 +273,32 @@ with tab4:
     st.write("### SQL Lab")
     st.caption("The uploaded dataset is available as a SQL table named sales_data.")
 
-    sample_queries = get_sample_queries()
+    sql_segment_candidates = [
+        col for col in profile["categorical_columns"]
+        if "id" not in col.lower()
+    ]
+
+    if sql_segment_candidates:
+        preferred_sql_segment = suggest_column(
+            sql_segment_candidates,
+            ["region", "category", "channel", "segment", "product"]
+        )
+
+        sql_segment_col = st.selectbox(
+            "SQL segment column",
+            sql_segment_candidates,
+            index=get_selectbox_index(sql_segment_candidates, preferred_sql_segment),
+            key="sql_segment_col"
+        )
+    else:
+        sql_segment_col = profile["column_names"][0]
+
+    sample_queries = get_sample_queries(
+        date_col=date_col,
+        revenue_col=revenue_col,
+        order_col=order_col,
+        segment_col=sql_segment_col
+    )
 
     selected_query_name = st.selectbox(
         "Sample query",
