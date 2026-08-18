@@ -2,6 +2,13 @@
 
 MetricPulseAI is an agentic KPI analytics assistant that helps users analyze business metrics from CSV datasets.
 
+## Demo Video
+
+Watch the 2-minute project walkthrough here:
+
+https://www.loom.com/share/454d8374448d4a7dbd64bfa32f84988e
+
+
 The system combines KPI dashboards, root-cause analysis, SQL analytics, anomaly detection, forecasting, and an LLM-powered tool-calling agent.
 
 ## What It Does
